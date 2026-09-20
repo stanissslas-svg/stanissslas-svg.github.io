@@ -222,6 +222,31 @@
     width: 100%;
     margin-top: 12px;
   }
+
+  .player-bar {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    flex-wrap: wrap;
+  }
+
+  .player-bar .streak {
+    color: #fb923c;
+    font-weight: 700;
+  }
+
+  .player-bar .badge {
+    color: #facc15;
+    font-weight: 700;
+  }
+
+  .badge-tag {
+    font-size: 12px;
+    color: #facc15;
+    margin-left: 6px;
+  }
 </style>
 </head>
 <body>
@@ -229,6 +254,14 @@
 <h1>Vote de Pubs</h1>
 
 <div class="card">
+  <div class="player-bar">
+    <span class="streak" id="streak-display">🔥 Streak : 0 jour</span>
+    <span class="badge" id="badge-display"></span>
+  </div>
+  <div class="stats" style="margin-top:-8px; margin-bottom:8px;">
+    <a href="#" onclick="logout(); return false;" style="color:#9ca3af;">🔄 Changer de compte</a>
+  </div>
+
   <div class="ad-slot" id="ad-container">
     <!--
       ============================================================
@@ -259,11 +292,14 @@
   <button class="leaderboard-btn" onclick="openLeaderboard()">🏆 Voir les classements</button>
 </div>
 
-<!-- Modale : demande du pseudo (une seule fois) -->
+<!-- Modale : demande du pseudo + code (une seule fois) -->
 <div class="overlay" id="pseudo-overlay">
   <div class="modal">
-    <h2>Choisis ton pseudo</h2>
+    <h2>Crée ton compte ou connecte-toi</h2>
     <input type="text" id="pseudo-input" placeholder="Ton pseudo" maxlength="20">
+    <input type="password" id="code-input" placeholder="Ton code (4 chiffres ou plus)" maxlength="20">
+    <p class="stats" style="margin-top:-6px; margin-bottom:12px;">Retiens bien ce code, il n'y a pas de récupération possible.</p>
+    <p class="stats" id="pseudo-error" style="color:#f87171;"></p>
     <button class="primary-btn" onclick="savePseudo()">Valider</button>
   </div>
 </div>
@@ -306,20 +342,72 @@
     return localStorage.getItem('pseudo');
   }
 
-  function savePseudo() {
-    const input = document.getElementById('pseudo-input');
-    const value = input.value.trim();
-    if (!value) return;
+  async function hashCode(code) {
+    const enc = new TextEncoder().encode(code);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function savePseudo() {
+    const pseudoInput = document.getElementById('pseudo-input');
+    const codeInput = document.getElementById('code-input');
+    const errorEl = document.getElementById('pseudo-error');
+    const value = pseudoInput.value.trim();
+    const code = codeInput.value.trim();
+    errorEl.textContent = '';
+
+    if (!value || !code) {
+      errorEl.textContent = 'Remplis le pseudo et le code.';
+      return;
+    }
+    if (code.length < 4) {
+      errorEl.textContent = 'Le code doit faire au moins 4 caractères.';
+      return;
+    }
+
     const key = sanitizeKey(value);
+    const codeHash = await hashCode(code);
+    const ref = db.ref('users/' + key);
+    const snapshot = await ref.once('value');
+
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      if (data.codeHash && data.codeHash !== codeHash) {
+        errorEl.textContent = 'Code incorrect pour ce pseudo.';
+        return;
+      }
+      if (!data.codeHash) {
+        await ref.child('codeHash').set(codeHash); // ancien compte sans code, on le sécurise maintenant
+      }
+      likeCount = data.likes || 0;
+      dislikeCount = data.dislikes || 0;
+    } else {
+      await ref.set({ name: value, likes: 0, dislikes: 0, vus: 0, streak: 0, lastVisit: null, codeHash });
+      likeCount = 0;
+      dislikeCount = 0;
+    }
+
+    document.getElementById('like-count').textContent = likeCount;
+    document.getElementById('dislike-count').textContent = dislikeCount;
+
     localStorage.setItem('pseudo', key);
     localStorage.setItem('pseudoDisplay', value);
     document.getElementById('pseudo-overlay').classList.remove('visible');
+    updateStreakAndBadge();
   }
 
   function ensurePseudo() {
     if (!getPseudo()) {
       document.getElementById('pseudo-overlay').classList.add('visible');
+    } else {
+      updateStreakAndBadge();
     }
+  }
+
+  function logout() {
+    localStorage.removeItem('pseudo');
+    localStorage.removeItem('pseudoDisplay');
+    location.reload();
   }
 
   function incrementStat(stat) {
@@ -332,6 +420,62 @@
       current.name = displayName;
       current[stat] = (current[stat] || 0) + 1;
       return current;
+    }, (error, committed, snapshot) => {
+      if (snapshot && snapshot.exists()) {
+        renderBadge(snapshot.val());
+      }
+    });
+  }
+
+  function getTodayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function getBadge(totalVotes) {
+    if (totalVotes >= 200) return '👑 Légende';
+    if (totalVotes >= 50) return '⚡ Régulier';
+    if (totalVotes >= 10) return '🏅 Débutant';
+    return '🌱 Nouveau';
+  }
+
+  function renderBadge(data) {
+    const total = (data.likes || 0) + (data.dislikes || 0);
+    document.getElementById('badge-display').textContent = getBadge(total);
+  }
+
+  function renderStreak(streak) {
+    document.getElementById('streak-display').textContent = `🔥 Streak : ${streak} jour${streak > 1 ? 's' : ''}`;
+  }
+
+  function updateStreakAndBadge() {
+    const pseudo = getPseudo();
+    if (!pseudo) return;
+    const displayName = localStorage.getItem('pseudoDisplay') || pseudo;
+    const ref = db.ref('users/' + pseudo);
+
+    ref.transaction(current => {
+      current = current || { name: displayName, likes: 0, dislikes: 0, vus: 0, streak: 0, lastVisit: null };
+      const today = getTodayStr();
+
+      if (current.lastVisit !== today) {
+        const yesterdayDate = new Date(Date.now() - 86400000);
+        const yesterdayStr = yesterdayDate.getFullYear() + '-' + String(yesterdayDate.getMonth() + 1).padStart(2, '0') + '-' + String(yesterdayDate.getDate()).padStart(2, '0');
+
+        if (current.lastVisit === yesterdayStr) {
+          current.streak = (current.streak || 0) + 1;
+        } else {
+          current.streak = 1;
+        }
+        current.lastVisit = today;
+      }
+      return current;
+    }, (error, committed, snapshot) => {
+      if (snapshot && snapshot.exists()) {
+        const data = snapshot.val();
+        renderStreak(data.streak || 0);
+        renderBadge(data);
+      }
     });
   }
 
@@ -368,12 +512,15 @@
       }
 
       const labels = { likes: '👍', dislikes: '👎', vus: '👀' };
-      list.innerHTML = entries.map((entry, i) => `
+      list.innerHTML = entries.map((entry, i) => {
+        const total = (entry.likes || 0) + (entry.dislikes || 0);
+        return `
         <li>
-          <span><span class="rank">#${i + 1}</span>${entry.name || 'Anonyme'}</span>
+          <span><span class="rank">#${i + 1}</span>${entry.name || 'Anonyme'}<span class="badge-tag">${getBadge(total)}</span></span>
           <span>${labels[stat]} ${entry[stat] || 0}</span>
         </li>
-      `).join('');
+      `;
+      }).join('');
     });
   }
 
