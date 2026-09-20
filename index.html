@@ -15,6 +15,16 @@
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2284703231604475"
      crossorigin="anonymous"></script>
 
+<!--
+  ============================================================
+  ÉTAPE 3 : Firebase (pour les classements publics).
+  Remplace le bloc firebaseConfig plus bas (dans le <script>
+  en bas de page) par celui que Firebase t'a donné.
+  ============================================================
+-->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
 <style>
   * {
     margin: 0;
@@ -113,6 +123,105 @@
     font-weight: 700;
     color: #fff;
   }
+
+  .leaderboard-btn {
+    margin-top: 16px;
+    background: #2563eb;
+    color: white;
+    width: 100%;
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 16px;
+  }
+
+  .overlay.visible {
+    display: flex;
+  }
+
+  .modal {
+    background: #1f2937;
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 420px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  .modal h2 {
+    margin-bottom: 16px;
+    font-size: 18px;
+  }
+
+  .modal input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: #374151;
+    color: white;
+    font-size: 15px;
+    margin-bottom: 12px;
+  }
+
+  .modal .primary-btn {
+    width: 100%;
+    background: #2563eb;
+    color: white;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 10px;
+    font-size: 13px;
+    background: #374151;
+    color: #9ca3af;
+  }
+
+  .tab-btn.active {
+    background: #2563eb;
+    color: white;
+  }
+
+  .leaderboard-list {
+    list-style: none;
+  }
+
+  .leaderboard-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    background: #111827;
+    font-size: 14px;
+  }
+
+  .leaderboard-list li .rank {
+    color: #9ca3af;
+    margin-right: 8px;
+  }
+
+  .close-modal {
+    background: transparent;
+    color: #9ca3af;
+    width: 100%;
+    margin-top: 12px;
+  }
 </style>
 </head>
 <body>
@@ -146,9 +255,128 @@
   <div class="stats">
     J'aime : <span id="like-count">0</span> &nbsp;|&nbsp; J'aime pas : <span id="dislike-count">0</span>
   </div>
+
+  <button class="leaderboard-btn" onclick="openLeaderboard()">🏆 Voir les classements</button>
+</div>
+
+<!-- Modale : demande du pseudo (une seule fois) -->
+<div class="overlay" id="pseudo-overlay">
+  <div class="modal">
+    <h2>Choisis ton pseudo</h2>
+    <input type="text" id="pseudo-input" placeholder="Ton pseudo" maxlength="20">
+    <button class="primary-btn" onclick="savePseudo()">Valider</button>
+  </div>
+</div>
+
+<!-- Modale : classements -->
+<div class="overlay" id="leaderboard-overlay">
+  <div class="modal">
+    <h2>🏆 Classements</h2>
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-likes" onclick="showTab('likes')">👍 Likes</button>
+      <button class="tab-btn" id="tab-dislikes" onclick="showTab('dislikes')">👎 Dislikes</button>
+      <button class="tab-btn" id="tab-vus" onclick="showTab('vus')">👀 Pubs vues</button>
+    </div>
+    <ul class="leaderboard-list" id="leaderboard-list">
+      <li>Chargement...</li>
+    </ul>
+    <button class="close-modal" onclick="closeLeaderboard()">Fermer</button>
+  </div>
 </div>
 
 <script>
+  // ============================================================
+  // ÉTAPE 3 (suite) : colle ici le firebaseConfig que Firebase
+  // t'a donné (Project settings > Your apps).
+  // ============================================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyBlk-fCMH5E8ehU6TEWZi0FBg9hx7lURx4",
+    authDomain: "adwatch-530d2.firebaseapp.com",
+    databaseURL: "https://adwatch-530d2-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "adwatch-530d2"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  function sanitizeKey(str) {
+    return str.replace(/[.#$/\[\]]/g, '_');
+  }
+
+  function getPseudo() {
+    return localStorage.getItem('pseudo');
+  }
+
+  function savePseudo() {
+    const input = document.getElementById('pseudo-input');
+    const value = input.value.trim();
+    if (!value) return;
+    const key = sanitizeKey(value);
+    localStorage.setItem('pseudo', key);
+    localStorage.setItem('pseudoDisplay', value);
+    document.getElementById('pseudo-overlay').classList.remove('visible');
+  }
+
+  function ensurePseudo() {
+    if (!getPseudo()) {
+      document.getElementById('pseudo-overlay').classList.add('visible');
+    }
+  }
+
+  function incrementStat(stat) {
+    const pseudo = getPseudo();
+    if (!pseudo) return;
+    const displayName = localStorage.getItem('pseudoDisplay') || pseudo;
+    const ref = db.ref('users/' + pseudo);
+    ref.transaction(current => {
+      current = current || { name: displayName, likes: 0, dislikes: 0, vus: 0 };
+      current.name = displayName;
+      current[stat] = (current[stat] || 0) + 1;
+      return current;
+    });
+  }
+
+  let currentTab = 'likes';
+
+  function openLeaderboard() {
+    document.getElementById('leaderboard-overlay').classList.add('visible');
+    showTab(currentTab);
+  }
+
+  function closeLeaderboard() {
+    document.getElementById('leaderboard-overlay').classList.remove('visible');
+  }
+
+  function showTab(stat) {
+    currentTab = stat;
+    document.getElementById('tab-likes').classList.toggle('active', stat === 'likes');
+    document.getElementById('tab-dislikes').classList.toggle('active', stat === 'dislikes');
+    document.getElementById('tab-vus').classList.toggle('active', stat === 'vus');
+
+    const list = document.getElementById('leaderboard-list');
+    list.innerHTML = '<li>Chargement...</li>';
+
+    db.ref('users').orderByChild(stat).limitToLast(10).once('value', snapshot => {
+      const entries = [];
+      snapshot.forEach(child => {
+        entries.push(child.val());
+      });
+      entries.reverse(); // le plus grand en premier
+
+      if (entries.length === 0) {
+        list.innerHTML = '<li>Aucune donnée pour le moment</li>';
+        return;
+      }
+
+      const labels = { likes: '👍', dislikes: '👎', vus: '👀' };
+      list.innerHTML = entries.map((entry, i) => `
+        <li>
+          <span><span class="rank">#${i + 1}</span>${entry.name || 'Anonyme'}</span>
+          <span>${labels[stat]} ${entry[stat] || 0}</span>
+        </li>
+      `).join('');
+    });
+  }
+
   let likeCount = 0;
   let dislikeCount = 0;
   const COOLDOWN_SECONDS = 10;
@@ -165,9 +393,11 @@
     if (choice === 'like') {
       likeCount++;
       document.getElementById('like-count').textContent = likeCount;
+      incrementStat('likes');
     } else {
       dislikeCount++;
       document.getElementById('dislike-count').textContent = dislikeCount;
+      incrementStat('dislikes');
     }
     loadNewAd();
     startCooldown();
@@ -210,8 +440,12 @@
     } catch (e) {
       console.error('Erreur de chargement de la pub :', e);
     }
+    incrementStat('vus');
   }
 
+  // Demande le pseudo si pas encore choisi, puis démarre
+  ensurePseudo();
+  incrementStat('vus'); // compte la toute première pub affichée
   // Cooldown initial au chargement de la page (pour la toute première pub)
   startCooldown();
 </script>
