@@ -425,8 +425,6 @@
 
   .side-panel:fullscreen #platformer-canvas,
   .side-panel:-webkit-full-screen #platformer-canvas {
-    width: min(92vw, 900px);
-    height: auto;
     image-rendering: pixelated;
     box-shadow: 0 10px 40px rgba(0,0,0,0.5);
   }
@@ -928,6 +926,36 @@
       else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     }
   }
+
+  function resizePlatformerCanvas() {
+    const canvas = document.getElementById('platformer-canvas');
+    const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+
+    if (!isFullscreen) {
+      // Mode normal : on laisse le CSS habituel (width:100%) gérer la taille.
+      canvas.style.width = '';
+      canvas.style.height = '';
+      return;
+    }
+
+    const ratio = canvas.width / canvas.height; // 204/260
+    const availW = window.innerWidth * 0.92;
+    const availH = window.innerHeight * 0.72; // on laisse de la place pour le texte et les boutons
+
+    let w = availW;
+    let h = w / ratio;
+    if (h > availH) {
+      h = availH;
+      w = h * ratio;
+    }
+
+    canvas.style.width = Math.round(w) + 'px';
+    canvas.style.height = Math.round(h) + 'px';
+  }
+
+  document.addEventListener('fullscreenchange', resizePlatformerCanvas);
+  document.addEventListener('webkitfullscreenchange', resizePlatformerCanvas);
+  window.addEventListener('resize', resizePlatformerCanvas);
 
   function initPlatformer() {
     pfCanvas = document.getElementById('platformer-canvas');
