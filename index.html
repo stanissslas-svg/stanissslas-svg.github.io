@@ -393,9 +393,62 @@
   }
 
   .platformer-start-btn {
-    width: 100%;
+    flex: 1;
     background: linear-gradient(135deg, #06b6d4, #8b5cf6);
     color: white;
+  }
+
+  .platformer-btn-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .fullscreen-btn {
+    flex-shrink: 0;
+    background: #374151;
+    color: #d1d5db;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .side-panel:fullscreen,
+  .side-panel:-webkit-full-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #0f172a;
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .side-panel:fullscreen #platformer-canvas,
+  .side-panel:-webkit-full-screen #platformer-canvas {
+    width: min(92vw, 900px);
+    height: auto;
+    image-rendering: pixelated;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  }
+
+  .side-panel:fullscreen h3,
+  .side-panel:-webkit-full-screen h3 {
+    font-size: 22px;
+    margin-bottom: 20px;
+  }
+
+  .side-panel:fullscreen .platformer-info,
+  .side-panel:fullscreen .platformer-controls,
+  .side-panel:-webkit-full-screen .platformer-info,
+  .side-panel:-webkit-full-screen .platformer-controls {
+    font-size: 16px;
+    margin-top: 14px;
+  }
+
+  .side-panel:fullscreen .platformer-btn-row,
+  .side-panel:-webkit-full-screen .platformer-btn-row {
+    width: min(92vw, 900px);
+    margin-top: 16px;
   }
 
   .side-column {
@@ -442,13 +495,16 @@
       <div class="global-total-line"><span id="global-total">0</span> votes en tout, tous utilisateurs confondus</div>
     </div>
 
-    <div class="side-panel">
+    <div class="side-panel" id="platformer-panel">
       <h3>🏃 Parcours Piégé</h3>
       <canvas id="platformer-canvas" width="204" height="260"></canvas>
       <div class="platformer-info">🏳️ Niveau <span id="platformer-level">1</span>/<span id="platformer-total-levels">5</span></div>
       <div class="platformer-info">💀 Morts : <span id="platformer-deaths">0</span> &nbsp;|&nbsp; 🏆 Record : <span id="platformer-best">—</span></div>
       <div class="platformer-controls">← → pour bouger, ↑ pour sauter</div>
-      <button class="platformer-start-btn" id="platformer-start-btn" onclick="startPlatformer()">▶ Jouer</button>
+      <div class="platformer-btn-row">
+        <button class="platformer-start-btn" id="platformer-start-btn" onclick="startPlatformer()">▶ Jouer</button>
+        <button class="fullscreen-btn" onclick="togglePlatformerFullscreen()">⛶ Plein écran</button>
+      </div>
     </div>
   </div>
 
@@ -755,6 +811,88 @@
         { x: 770, y: 220, w: 180, h: 20, type: 'normal' }
       ],
       flagX: 870, levelWidth: 950
+    },
+    { // Niveau 6 — plateformes surélevées avec pièges
+      platforms: [
+        { x: 0,   y: 220, w: 110, h: 20, type: 'normal' },
+        { x: 165, y: 220, w: 50,  h: 20, type: 'crumble' },
+        { x: 265, y: 220, w: 90,  h: 20, type: 'normal' },
+        { x: 355, y: 220, w: 40,  h: 20, type: 'spike' },
+        { x: 405, y: 220, w: 90,  h: 20, type: 'normal' },
+        { x: 550, y: 190, w: 60,  h: 20, type: 'crumble' },
+        { x: 660, y: 220, w: 90,  h: 20, type: 'normal' },
+        { x: 750, y: 220, w: 35,  h: 20, type: 'spike' },
+        { x: 795, y: 220, w: 160, h: 20, type: 'normal' }
+      ],
+      flagX: 880, levelWidth: 1000
+    },
+    { // Niveau 7 — pièges plus rapprochés
+      platforms: [
+        { x: 0,   y: 220, w: 100, h: 20, type: 'normal' },
+        { x: 155, y: 220, w: 60,  h: 20, type: 'crumble' },
+        { x: 265, y: 220, w: 100, h: 20, type: 'normal' },
+        { x: 365, y: 220, w: 40,  h: 20, type: 'spike' },
+        { x: 415, y: 220, w: 70,  h: 20, type: 'normal' },
+        { x: 540, y: 220, w: 50,  h: 20, type: 'crumble' },
+        { x: 640, y: 220, w: 90,  h: 20, type: 'normal' },
+        { x: 730, y: 220, w: 35,  h: 20, type: 'spike' },
+        { x: 775, y: 220, w: 170, h: 20, type: 'normal' }
+      ],
+      flagX: 860, levelWidth: 990
+    },
+    { // Niveau 8 — pièges surélevés, davantage de variation
+      platforms: [
+        { x: 0,   y: 220, w: 100, h: 20, type: 'normal' },
+        { x: 155, y: 190, w: 50,  h: 20, type: 'crumble' },
+        { x: 255, y: 220, w: 90,  h: 20, type: 'normal' },
+        { x: 345, y: 220, w: 35,  h: 20, type: 'spike' },
+        { x: 390, y: 220, w: 80,  h: 20, type: 'normal' },
+        { x: 525, y: 190, w: 45,  h: 20, type: 'crumble' },
+        { x: 620, y: 220, w: 90,  h: 20, type: 'normal' },
+        { x: 710, y: 220, w: 40,  h: 20, type: 'spike' },
+        { x: 760, y: 220, w: 80,  h: 20, type: 'normal' },
+        { x: 895, y: 190, w: 50,  h: 20, type: 'crumble' },
+        { x: 995, y: 220, w: 160, h: 20, type: 'normal' }
+      ],
+      flagX: 1080, levelWidth: 1200
+    },
+    { // Niveau 9 — parcours long et dense
+      platforms: [
+        { x: 0,    y: 220, w: 90,  h: 20, type: 'normal' },
+        { x: 140,  y: 220, w: 50,  h: 20, type: 'crumble' },
+        { x: 240,  y: 220, w: 80,  h: 20, type: 'normal' },
+        { x: 320,  y: 220, w: 35,  h: 20, type: 'spike' },
+        { x: 365,  y: 220, w: 70,  h: 20, type: 'normal' },
+        { x: 485,  y: 190, w: 45,  h: 20, type: 'crumble' },
+        { x: 580,  y: 220, w: 80,  h: 20, type: 'normal' },
+        { x: 660,  y: 220, w: 35,  h: 20, type: 'spike' },
+        { x: 705,  y: 220, w: 70,  h: 20, type: 'normal' },
+        { x: 825,  y: 190, w: 45,  h: 20, type: 'crumble' },
+        { x: 920,  y: 220, w: 80,  h: 20, type: 'normal' },
+        { x: 1000, y: 220, w: 40,  h: 20, type: 'spike' },
+        { x: 1050, y: 220, w: 170, h: 20, type: 'normal' }
+      ],
+      flagX: 1140, levelWidth: 1260
+    },
+    { // Niveau 10 — le gauntlet final
+      platforms: [
+        { x: 0,    y: 220, w: 90,  h: 20, type: 'normal' },
+        { x: 140,  y: 220, w: 45,  h: 20, type: 'crumble' },
+        { x: 235,  y: 220, w: 70,  h: 20, type: 'normal' },
+        { x: 305,  y: 220, w: 35,  h: 20, type: 'spike' },
+        { x: 350,  y: 220, w: 60,  h: 20, type: 'normal' },
+        { x: 460,  y: 190, w: 45,  h: 20, type: 'crumble' },
+        { x: 555,  y: 220, w: 70,  h: 20, type: 'normal' },
+        { x: 625,  y: 220, w: 35,  h: 20, type: 'spike' },
+        { x: 670,  y: 220, w: 60,  h: 20, type: 'normal' },
+        { x: 780,  y: 190, w: 45,  h: 20, type: 'crumble' },
+        { x: 875,  y: 220, w: 70,  h: 20, type: 'normal' },
+        { x: 945,  y: 220, w: 40,  h: 20, type: 'spike' },
+        { x: 995,  y: 220, w: 60,  h: 20, type: 'normal' },
+        { x: 1105, y: 190, w: 45,  h: 20, type: 'crumble' },
+        { x: 1200, y: 220, w: 180, h: 20, type: 'normal' }
+      ],
+      flagX: 1300, levelWidth: 1420
     }
   ];
   const PF_FLAG_Y = 220;
@@ -778,6 +916,18 @@
   let pfFlagX = 0;
   let pfLevelWidth = 0;
   let pfLevelUpTimer = 0;
+
+  function togglePlatformerFullscreen() {
+    const panel = document.getElementById('platformer-panel');
+    const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+    if (!isFullscreen) {
+      if (panel.requestFullscreen) panel.requestFullscreen();
+      else if (panel.webkitRequestFullscreen) panel.webkitRequestFullscreen();
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
+  }
 
   function initPlatformer() {
     pfCanvas = document.getElementById('platformer-canvas');
