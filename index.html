@@ -337,38 +337,11 @@
     border-top: 1px solid #374151;
   }
 
-  .mole-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin: 10px 0;
-  }
-
-  .mole-cell {
-    aspect-ratio: 1;
-    background: #374151;
+  #snake-canvas {
+    display: block;
+    width: 100%;
     border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    cursor: pointer;
-    transition: background 0.15s ease;
-  }
-
-  .mole-cell.active {
-    background: #facc15;
-  }
-
-  .mole-cell.trap {
-    background: #dc2626;
-  }
-
-  .mole-score-line {
-    text-align: center;
-    font-size: 13px;
-    color: #9ca3af;
-    margin-top: 6px;
+    margin: 8px 0;
   }
 
   #platformer-canvas {
@@ -558,9 +531,11 @@
     </div>
 
     <div class="side-panel">
-      <h3>🎯 Attrape la taupe</h3>
-      <div class="mole-grid" id="mole-grid"></div>
-      <div class="mole-score-line">Score : <span id="mole-score">0</span> &nbsp;|&nbsp; Record : <span id="mole-best">0</span></div>
+      <h3>🐍 Snake</h3>
+      <canvas id="snake-canvas" width="204" height="204"></canvas>
+      <div class="platformer-info">Score : <span id="snake-score">0</span> &nbsp;|&nbsp; Record : <span id="snake-best">0</span></div>
+      <div class="platformer-controls">← ↑ → ↓ pour diriger le serpent</div>
+      <button class="platformer-start-btn" id="snake-start-btn" onclick="startSnake()">▶ Jouer</button>
     </div>
   </div>
 
@@ -586,7 +561,7 @@
       <button class="tab-btn active" id="tab-likes" onclick="showTab('likes')">👍 Likes</button>
       <button class="tab-btn" id="tab-dislikes" onclick="showTab('dislikes')">👎 Dislikes</button>
       <button class="tab-btn" id="tab-vus" onclick="showTab('vus')">👀 Pubs vues</button>
-      <button class="tab-btn" id="tab-moleBest" onclick="showTab('moleBest')">🎯 Taupe</button>
+      <button class="tab-btn" id="tab-snakeBest" onclick="showTab('snakeBest')">🐍 Snake</button>
     </div>
     <ul class="leaderboard-list" id="leaderboard-list">
       <li>Chargement...</li>
@@ -685,11 +660,11 @@
         document.getElementById('dislike-count').textContent = dislikeCount;
         renderCreature(getGamePoints(likeCount, dislikeCount));
 
-        const firebaseMoleBest = data.moleBest || 0;
-        if (firebaseMoleBest > moleBest) {
-          moleBest = firebaseMoleBest;
-          localStorage.setItem('moleBest', moleBest);
-          document.getElementById('mole-best').textContent = moleBest;
+        const firebaseSnakeBest = data.snakeBest || 0;
+        if (firebaseSnakeBest > snakeBest) {
+          snakeBest = firebaseSnakeBest;
+          localStorage.setItem('snakeBest', snakeBest);
+          document.getElementById('snake-best').textContent = snakeBest;
         }
       });
       updateStreakAndBadge();
@@ -968,11 +943,13 @@
     document.addEventListener('keydown', e => {
       const tag = document.activeElement.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (activeMiniGame !== 'platformer') return;
       if (e.code === 'ArrowLeft') { pfKeys.left = true; e.preventDefault(); }
       if (e.code === 'ArrowRight') { pfKeys.right = true; e.preventDefault(); }
       if (e.code === 'ArrowUp' || e.code === 'Space') { pfKeys.up = true; e.preventDefault(); }
     });
     document.addEventListener('keyup', e => {
+      if (activeMiniGame !== 'platformer') return;
       if (e.code === 'ArrowLeft') pfKeys.left = false;
       if (e.code === 'ArrowRight') pfKeys.right = false;
       if (e.code === 'ArrowUp' || e.code === 'Space') pfKeys.up = false;
@@ -991,6 +968,7 @@
 
   function startPlatformer() {
     if (pfRunning) return;
+    activeMiniGame = 'platformer';
     pfRunning = true;
     pfDeaths = 0;
     pfLevelIndex = 0;
@@ -1191,49 +1169,78 @@
     }
   }
 
-  // ============================================================
-  // Mini-jeu "Attrape la taupe" — indépendant des votes, juste
-  // pour passer le temps. Le record est sauvegardé localement
-  // sur ton navigateur (pas partagé entre visiteurs).
-  // ============================================================
-  let moleScore = 0;
-  let moleBest = parseInt(localStorage.getItem('moleBest') || '0', 10);
-  let currentMoleIndex = -1;
-  let moleTimer = null;
+  // Variable partagée : quel mini-jeu (parcours piégé ou snake) reçoit
+  // les touches fléchées en ce moment.
+  let activeMiniGame = null;
 
-  function initMoleGame() {
-    document.getElementById('mole-best').textContent = moleBest;
-    const grid = document.getElementById('mole-grid');
-    for (let i = 0; i < 9; i++) {
-      const cell = document.createElement('div');
-      cell.className = 'mole-cell';
-      cell.id = 'mole-cell-' + i;
-      cell.onclick = () => hitMole(i);
-      grid.appendChild(cell);
-    }
-    scheduleMole();
+  // ============================================================
+  // Mini-jeu "Snake" — indépendant des votes, juste pour passer
+  // le temps. Le record est sauvegardé sur ton compte (Firebase)
+  // et visible dans les classements.
+  // ============================================================
+  const SNAKE_GRID = 12;
+  const SNAKE_CELL = 17; // 12 * 17 = 204px, pile la largeur du canvas
+  const SNAKE_TICK_MS = 130;
+
+  let snakeCanvas, snakeCtx;
+  let snakeBody = [];
+  let snakeDir = { x: 1, y: 0 };
+  let snakeNextDir = { x: 1, y: 0 };
+  let snakeFood = { x: 8, y: 6 };
+  let snakeScore = 0;
+  let snakeBest = parseInt(localStorage.getItem('snakeBest') || '0', 10);
+  let snakeRunning = false;
+  let snakeGameOver = false;
+  let snakeInterval = null;
+
+  function initSnake() {
+    snakeCanvas = document.getElementById('snake-canvas');
+    snakeCtx = snakeCanvas.getContext('2d');
+    document.getElementById('snake-best').textContent = snakeBest;
+    resetSnake();
+    drawSnake(); // affiche un premier cadre statique avant de jouer
+
+    document.addEventListener('keydown', e => {
+      const tag = document.activeElement.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (activeMiniGame !== 'snake') return;
+      if (e.code === 'ArrowLeft' && snakeDir.x === 0) { snakeNextDir = { x: -1, y: 0 }; e.preventDefault(); }
+      else if (e.code === 'ArrowRight' && snakeDir.x === 0) { snakeNextDir = { x: 1, y: 0 }; e.preventDefault(); }
+      else if (e.code === 'ArrowUp' && snakeDir.y === 0) { snakeNextDir = { x: 0, y: -1 }; e.preventDefault(); }
+      else if (e.code === 'ArrowDown' && snakeDir.y === 0) { snakeNextDir = { x: 0, y: 1 }; e.preventDefault(); }
+      else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) { e.preventDefault(); }
+    });
   }
 
-  function scheduleMole() {
-    if (moleTimer) clearTimeout(moleTimer);
-    moleTimer = setTimeout(() => {
-      if (currentMoleIndex !== -1) {
-        const oldCell = document.getElementById('mole-cell-' + currentMoleIndex);
-        oldCell.classList.remove('active', 'trap');
-        oldCell.textContent = '';
-        oldCell.dataset.trap = '0';
-      }
-      currentMoleIndex = Math.floor(Math.random() * 9);
-      const cell = document.getElementById('mole-cell-' + currentMoleIndex);
-      const isTrap = Math.random() < 0.3;
-      cell.dataset.trap = isTrap ? '1' : '0';
-      cell.classList.add(isTrap ? 'trap' : 'active');
-      cell.textContent = isTrap ? '💣' : '🐹';
-      scheduleMole();
-    }, 800 + Math.random() * 700);
+  function resetSnake() {
+    snakeBody = [{ x: 5, y: 6 }, { x: 4, y: 6 }, { x: 3, y: 6 }];
+    snakeDir = { x: 1, y: 0 };
+    snakeNextDir = { x: 1, y: 0 };
+    snakeScore = 0;
+    snakeGameOver = false;
+    placeSnakeFood();
+    document.getElementById('snake-score').textContent = snakeScore;
   }
 
-  function saveMoleBestToFirebase(best) {
+  function placeSnakeFood() {
+    let pos;
+    do {
+      pos = { x: Math.floor(Math.random() * SNAKE_GRID), y: Math.floor(Math.random() * SNAKE_GRID) };
+    } while (snakeBody.some(s => s.x === pos.x && s.y === pos.y));
+    snakeFood = pos;
+  }
+
+  function startSnake() {
+    if (snakeRunning) return;
+    activeMiniGame = 'snake';
+    snakeRunning = true;
+    document.getElementById('snake-start-btn').style.display = 'none';
+    resetSnake();
+    if (snakeInterval) clearInterval(snakeInterval);
+    snakeInterval = setInterval(snakeTick, SNAKE_TICK_MS);
+  }
+
+  function saveSnakeBestToFirebase(best) {
     const pseudo = getPseudo();
     if (!pseudo) return;
     const displayName = localStorage.getItem('pseudoDisplay') || pseudo;
@@ -1241,36 +1248,87 @@
     ref.transaction(current => {
       current = current || { name: displayName, likes: 0, dislikes: 0, vus: 0 };
       current.name = displayName;
-      if (!current.moleBest || best > current.moleBest) {
-        current.moleBest = best;
+      if (!current.snakeBest || best > current.snakeBest) {
+        current.snakeBest = best;
       }
       return current;
     });
   }
 
-  function hitMole(i) {
-    if (i !== currentMoleIndex) return;
-    const cell = document.getElementById('mole-cell-' + i);
-    const wasTrap = cell.dataset.trap === '1';
-    cell.classList.remove('active', 'trap');
-    cell.textContent = '';
-    cell.dataset.trap = '0';
-    currentMoleIndex = -1;
+  function snakeTick() {
+    snakeDir = snakeNextDir;
+    const head = { x: snakeBody[0].x + snakeDir.x, y: snakeBody[0].y + snakeDir.y };
 
-    if (wasTrap) {
-      moleScore = 0;
-      document.getElementById('mole-score').textContent = moleScore;
-    } else {
-      moleScore++;
-      document.getElementById('mole-score').textContent = moleScore;
-      if (moleScore > moleBest) {
-        moleBest = moleScore;
-        localStorage.setItem('moleBest', moleBest);
-        document.getElementById('mole-best').textContent = moleBest;
-        saveMoleBestToFirebase(moleBest);
+    const hitWall = head.x < 0 || head.x >= SNAKE_GRID || head.y < 0 || head.y >= SNAKE_GRID;
+    const hitSelf = snakeBody.some(s => s.x === head.x && s.y === head.y);
+
+    if (hitWall || hitSelf) {
+      snakeGameOver = true;
+      snakeRunning = false;
+      clearInterval(snakeInterval);
+      if (snakeScore > snakeBest) {
+        snakeBest = snakeScore;
+        localStorage.setItem('snakeBest', snakeBest);
+        document.getElementById('snake-best').textContent = snakeBest;
+        saveSnakeBestToFirebase(snakeBest);
       }
+      document.getElementById('snake-start-btn').style.display = 'block';
+      document.getElementById('snake-start-btn').textContent = '🔄 Rejouer';
+      drawSnake();
+      return;
     }
-    scheduleMole();
+
+    snakeBody.unshift(head);
+
+    if (head.x === snakeFood.x && head.y === snakeFood.y) {
+      snakeScore++;
+      document.getElementById('snake-score').textContent = snakeScore;
+      placeSnakeFood();
+    } else {
+      snakeBody.pop();
+    }
+
+    drawSnake();
+  }
+
+  function drawSnake() {
+    const cw = snakeCanvas.width, ch = snakeCanvas.height;
+
+    const grad = snakeCtx.createLinearGradient(0, 0, 0, ch);
+    grad.addColorStop(0, '#1e1b4b');
+    grad.addColorStop(1, '#312e81');
+    snakeCtx.fillStyle = grad;
+    snakeCtx.fillRect(0, 0, cw, ch);
+
+    // nourriture
+    snakeCtx.fillStyle = '#f472b6';
+    snakeCtx.beginPath();
+    snakeCtx.arc(
+      snakeFood.x * SNAKE_CELL + SNAKE_CELL / 2,
+      snakeFood.y * SNAKE_CELL + SNAKE_CELL / 2,
+      SNAKE_CELL / 2.6, 0, Math.PI * 2
+    );
+    snakeCtx.fill();
+
+    // serpent
+    snakeBody.forEach((seg, i) => {
+      snakeCtx.fillStyle = i === 0 ? '#22d3ee' : '#0e7490';
+      snakeCtx.beginPath();
+      snakeCtx.roundRect(seg.x * SNAKE_CELL + 1, seg.y * SNAKE_CELL + 1, SNAKE_CELL - 2, SNAKE_CELL - 2, 4);
+      snakeCtx.fill();
+    });
+
+    if (snakeGameOver) {
+      snakeCtx.fillStyle = 'rgba(0,0,0,0.6)';
+      snakeCtx.fillRect(0, ch / 2 - 28, cw, 56);
+      snakeCtx.fillStyle = '#f472b6';
+      snakeCtx.font = 'bold 15px sans-serif';
+      snakeCtx.textAlign = 'center';
+      snakeCtx.fillText('💀 Perdu !', cw / 2, ch / 2 - 5);
+      snakeCtx.font = '12px sans-serif';
+      snakeCtx.fillStyle = '#fff';
+      snakeCtx.fillText('Score : ' + snakeScore, cw / 2, ch / 2 + 15);
+    }
   }
 
   function incrementStat(stat) {
@@ -1366,7 +1424,7 @@
     document.getElementById('tab-likes').classList.toggle('active', stat === 'likes');
     document.getElementById('tab-dislikes').classList.toggle('active', stat === 'dislikes');
     document.getElementById('tab-vus').classList.toggle('active', stat === 'vus');
-    document.getElementById('tab-moleBest').classList.toggle('active', stat === 'moleBest');
+    document.getElementById('tab-snakeBest').classList.toggle('active', stat === 'snakeBest');
 
     const list = document.getElementById('leaderboard-list');
     list.innerHTML = '<li>Chargement...</li>';
@@ -1383,7 +1441,7 @@
         return;
       }
 
-      const labels = { likes: '👍', dislikes: '👎', vus: '👀', moleBest: '🎯' };
+      const labels = { likes: '👍', dislikes: '👎', vus: '👀', snakeBest: '🐍' };
       list.innerHTML = entries.map((entry, i) => {
         const total = (entry.likes || 0) + (entry.dislikes || 0);
         return `
@@ -1465,7 +1523,7 @@
   // Demande le pseudo si pas encore choisi, puis démarre
   ensurePseudo();
   listenGlobalStats();
-  initMoleGame();
+  initSnake();
   initPlatformer();
   incrementStat('vus'); // compte la toute première pub affichée
   // Cooldown initial au chargement de la page (pour la toute première pub)
