@@ -246,49 +246,177 @@
     color: #facc15;
     margin-left: 6px;
   }
+
+  .layout-wrapper {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+    max-width: 940px;
+  }
+
+  .side-panel {
+    width: 240px;
+    flex-shrink: 0;
+    background: #1f2937;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
+
+  .side-panel h3 {
+    font-size: 14px;
+    color: #9ca3af;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .creature-emoji {
+    font-size: 56px;
+    text-align: center;
+    line-height: 1;
+  }
+
+  .creature-name {
+    text-align: center;
+    font-weight: 700;
+    margin-top: 6px;
+  }
+
+  .creature-points {
+    text-align: center;
+    font-size: 13px;
+    color: #9ca3af;
+    margin: 8px 0;
+  }
+
+  .progress-track {
+    background: #374151;
+    border-radius: 8px;
+    height: 10px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .progress-fill {
+    background: #facc15;
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+
+  .creature-next {
+    text-align: center;
+    font-size: 12px;
+    color: #9ca3af;
+  }
+
+  .global-stat-block {
+    text-align: center;
+    margin: 14px 0;
+  }
+
+  .global-stat-block .value {
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .global-stat-block .label {
+    font-size: 12px;
+    color: #9ca3af;
+  }
+
+  .global-total-line {
+    text-align: center;
+    font-size: 13px;
+    color: #9ca3af;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid #374151;
+  }
+
+  @media (max-width: 900px) {
+    .layout-wrapper {
+      flex-direction: column;
+      align-items: center;
+    }
+    .side-panel {
+      width: 100%;
+      max-width: 440px;
+    }
+  }
 </style>
 </head>
 <body>
 
 <h1>Vote de Pubs</h1>
 
-<div class="card">
-  <div class="player-bar">
-    <span class="streak" id="streak-display">🔥 Streak : 0 jour</span>
-    <span class="badge" id="badge-display"></span>
-  </div>
-  <div class="stats" style="margin-top:-8px; margin-bottom:8px;">
-    <a href="#" onclick="logout(); return false;" style="color:#9ca3af;">🔄 Changer de compte</a>
-  </div>
+<div class="layout-wrapper">
 
-  <div class="ad-slot" id="ad-container">
-    <!--
-      ============================================================
-      ÉTAPE 2 : Remplace data-ad-slot="XXXXXXXXXX" ci-dessous par
-      l'ID d'un vrai bloc d'annonce que tu crées dans AdSense
-      (Annonces > Par emplacement > Nouveau bloc d'annonces).
-      ============================================================
-    -->
-    <ins class="adsbygoogle"
-         style="display:block; width:100%; min-height:220px;"
-         data-ad-client="ca-pub-2284703231604475"
-         data-ad-slot="XXXXXXXXXX"
-         data-ad-format="auto"
-         data-full-width-responsive="true"></ins>
+  <div class="side-panel">
+    <h3>📊 Stats globales</h3>
+    <div class="global-stat-block">
+      <div class="value">👍 <span id="global-likes">0</span></div>
+      <div class="label">J'aime au total</div>
+    </div>
+    <div class="global-stat-block">
+      <div class="value">👎 <span id="global-dislikes">0</span></div>
+      <div class="label">J'aime pas au total</div>
+    </div>
+    <div class="global-total-line"><span id="global-total">0</span> votes en tout, tous utilisateurs confondus</div>
   </div>
 
-  <div class="buttons">
-    <button class="dislike" id="btn-dislike" onclick="vote('dislike')" disabled>👎 J'aime pas</button>
-    <button class="like" id="btn-like" onclick="vote('like')" disabled>👍 J'aime</button>
+  <div class="card">
+    <div class="player-bar">
+      <span class="streak" id="streak-display">🔥 Streak : 0 jour</span>
+      <span class="badge" id="badge-display"></span>
+    </div>
+    <div class="stats" style="margin-top:-8px; margin-bottom:8px;">
+      <a href="#" onclick="logout(); return false;" style="color:#9ca3af;">🔄 Changer de compte</a>
+    </div>
+
+    <div class="ad-slot" id="ad-container">
+      <!--
+        ============================================================
+        ÉTAPE 2 : Remplace data-ad-slot="XXXXXXXXXX" ci-dessous par
+        l'ID d'un vrai bloc d'annonce que tu crées dans AdSense
+        (Annonces > Par emplacement > Nouveau bloc d'annonces).
+        ============================================================
+      -->
+      <ins class="adsbygoogle"
+           style="display:block; width:100%; min-height:220px;"
+           data-ad-client="ca-pub-2284703231604475"
+           data-ad-slot="XXXXXXXXXX"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+    </div>
+
+    <div class="buttons">
+      <button class="dislike" id="btn-dislike" onclick="vote('dislike')" disabled>👎 J'aime pas</button>
+      <button class="like" id="btn-like" onclick="vote('like')" disabled>👍 J'aime</button>
+    </div>
+
+    <div class="stats" id="cooldown-msg">Regarde la pub encore <span id="cooldown-timer">10</span>s...</div>
+
+    <div class="stats">
+      J'aime : <span id="like-count">0</span> &nbsp;|&nbsp; J'aime pas : <span id="dislike-count">0</span>
+    </div>
+
+    <button class="leaderboard-btn" onclick="openLeaderboard()">🏆 Voir les classements</button>
   </div>
 
-  <div class="stats" id="cooldown-msg">Regarde la pub encore <span id="cooldown-timer">10</span>s...</div>
-
-  <div class="stats">
-    J'aime : <span id="like-count">0</span> &nbsp;|&nbsp; J'aime pas : <span id="dislike-count">0</span>
+  <div class="side-panel">
+    <h3>🎮 Élève ta créature</h3>
+    <div class="creature-emoji" id="creature-emoji">🥚</div>
+    <div class="creature-name" id="creature-name">Œuf</div>
+    <div class="creature-points"><span id="game-points">0</span> points</div>
+    <div class="progress-track">
+      <div class="progress-fill" id="game-progress-bar"></div>
+    </div>
+    <div class="creature-next" id="game-next-info">100 pts pour évoluer</div>
   </div>
 
-  <button class="leaderboard-btn" onclick="openLeaderboard()">🏆 Voir les classements</button>
 </div>
 
 <!-- Modale : demande du pseudo + code (une seule fois) -->
@@ -388,6 +516,7 @@
 
     document.getElementById('like-count').textContent = likeCount;
     document.getElementById('dislike-count').textContent = dislikeCount;
+    renderCreature(getGamePoints(likeCount, dislikeCount));
 
     localStorage.setItem('pseudo', key);
     localStorage.setItem('pseudoDisplay', value);
@@ -399,6 +528,15 @@
     if (!getPseudo()) {
       document.getElementById('pseudo-overlay').classList.add('visible');
     } else {
+      const pseudo = getPseudo();
+      db.ref('users/' + pseudo).once('value', snapshot => {
+        const data = snapshot.val() || { likes: 0, dislikes: 0 };
+        likeCount = data.likes || 0;
+        dislikeCount = data.dislikes || 0;
+        document.getElementById('like-count').textContent = likeCount;
+        document.getElementById('dislike-count').textContent = dislikeCount;
+        renderCreature(getGamePoints(likeCount, dislikeCount));
+      });
       updateStreakAndBadge();
     }
   }
@@ -407,6 +545,54 @@
     localStorage.removeItem('pseudo');
     localStorage.removeItem('pseudoDisplay');
     location.reload();
+  }
+
+  const creatureStages = [
+    { threshold: 0, emoji: '🥚', name: 'Œuf' },
+    { threshold: 100, emoji: '🐣', name: 'Poussin' },
+    { threshold: 300, emoji: '🐥', name: 'Poulet' },
+    { threshold: 700, emoji: '🦆', name: 'Canard' },
+    { threshold: 1500, emoji: '🦅', name: 'Aigle' },
+    { threshold: 3000, emoji: '🐉', name: 'Dragon' }
+  ];
+
+  function getGamePoints(likes, dislikes) {
+    return (likes || 0) * 10 + (dislikes || 0) * 5;
+  }
+
+  function renderCreature(points) {
+    let stageIndex = 0;
+    for (let i = 0; i < creatureStages.length; i++) {
+      if (points >= creatureStages[i].threshold) stageIndex = i;
+    }
+    const stage = creatureStages[stageIndex];
+    const nextStage = creatureStages[stageIndex + 1];
+
+    document.getElementById('creature-emoji').textContent = stage.emoji;
+    document.getElementById('creature-name').textContent = stage.name;
+    document.getElementById('game-points').textContent = points;
+
+    const bar = document.getElementById('game-progress-bar');
+    const info = document.getElementById('game-next-info');
+
+    if (nextStage) {
+      const range = nextStage.threshold - stage.threshold;
+      const progress = Math.min(100, Math.round(((points - stage.threshold) / range) * 100));
+      bar.style.width = progress + '%';
+      info.textContent = `${nextStage.threshold - points} pts pour évoluer en ${nextStage.name} ${nextStage.emoji}`;
+    } else {
+      bar.style.width = '100%';
+      info.textContent = 'Niveau maximum atteint 🎉';
+    }
+  }
+
+  function listenGlobalStats() {
+    db.ref('global').on('value', snapshot => {
+      const data = snapshot.val() || { likes: 0, dislikes: 0 };
+      document.getElementById('global-likes').textContent = data.likes || 0;
+      document.getElementById('global-dislikes').textContent = data.dislikes || 0;
+      document.getElementById('global-total').textContent = (data.likes || 0) + (data.dislikes || 0);
+    });
   }
 
   function incrementStat(stat) {
@@ -421,9 +607,17 @@
       return current;
     }, (error, committed, snapshot) => {
       if (snapshot && snapshot.exists()) {
-        renderBadge(snapshot.val());
+        const data = snapshot.val();
+        renderBadge(data);
+        if (stat === 'likes' || stat === 'dislikes') {
+          renderCreature(getGamePoints(data.likes, data.dislikes));
+        }
       }
     });
+
+    if (stat === 'likes' || stat === 'dislikes') {
+      db.ref('global/' + stat).transaction(v => (v || 0) + 1);
+    }
   }
 
   function getTodayStr() {
@@ -591,6 +785,7 @@
 
   // Demande le pseudo si pas encore choisi, puis démarre
   ensurePseudo();
+  listenGlobalStats();
   incrementStat('vus'); // compte la toute première pub affichée
   // Cooldown initial au chargement de la page (pour la toute première pub)
   startCooldown();
