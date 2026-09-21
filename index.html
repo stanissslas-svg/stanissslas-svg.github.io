@@ -179,14 +179,15 @@
 
   .tabs {
     display: flex;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
     margin-bottom: 16px;
   }
 
   .tab-btn {
-    flex: 1;
-    padding: 10px;
-    font-size: 13px;
+    flex: 1 1 45%;
+    padding: 8px;
+    font-size: 12px;
     background: #374151;
     color: #9ca3af;
   }
@@ -359,6 +360,10 @@
     background: #facc15;
   }
 
+  .mole-cell.trap {
+    background: #dc2626;
+  }
+
   .mole-score-line {
     text-align: center;
     font-size: 13px;
@@ -489,6 +494,7 @@
       <button class="tab-btn active" id="tab-likes" onclick="showTab('likes')">👍 Likes</button>
       <button class="tab-btn" id="tab-dislikes" onclick="showTab('dislikes')">👎 Dislikes</button>
       <button class="tab-btn" id="tab-vus" onclick="showTab('vus')">👀 Pubs vues</button>
+      <button class="tab-btn" id="tab-moleBest" onclick="showTab('moleBest')">🎯 Taupe</button>
     </div>
     <ul class="leaderboard-list" id="leaderboard-list">
       <li>Chargement...</li>
@@ -586,6 +592,13 @@
         document.getElementById('like-count').textContent = likeCount;
         document.getElementById('dislike-count').textContent = dislikeCount;
         renderCreature(getGamePoints(likeCount, dislikeCount));
+
+        const firebaseMoleBest = data.moleBest || 0;
+        if (firebaseMoleBest > moleBest) {
+          moleBest = firebaseMoleBest;
+          localStorage.setItem('moleBest', moleBest);
+          document.getElementById('mole-best').textContent = moleBest;
+        }
       });
       updateStreakAndBadge();
     }
@@ -673,30 +686,56 @@
     moleTimer = setTimeout(() => {
       if (currentMoleIndex !== -1) {
         const oldCell = document.getElementById('mole-cell-' + currentMoleIndex);
-        oldCell.classList.remove('active');
+        oldCell.classList.remove('active', 'trap');
         oldCell.textContent = '';
+        oldCell.dataset.trap = '0';
       }
       currentMoleIndex = Math.floor(Math.random() * 9);
       const cell = document.getElementById('mole-cell-' + currentMoleIndex);
-      cell.classList.add('active');
-      cell.textContent = '🐹';
+      const isTrap = Math.random() < 0.3;
+      cell.dataset.trap = isTrap ? '1' : '0';
+      cell.classList.add(isTrap ? 'trap' : 'active');
+      cell.textContent = isTrap ? '💣' : '🐹';
       scheduleMole();
     }, 800 + Math.random() * 700);
   }
 
+  function saveMoleBestToFirebase(best) {
+    const pseudo = getPseudo();
+    if (!pseudo) return;
+    const displayName = localStorage.getItem('pseudoDisplay') || pseudo;
+    const ref = db.ref('users/' + pseudo);
+    ref.transaction(current => {
+      current = current || { name: displayName, likes: 0, dislikes: 0, vus: 0 };
+      current.name = displayName;
+      if (!current.moleBest || best > current.moleBest) {
+        current.moleBest = best;
+      }
+      return current;
+    });
+  }
+
   function hitMole(i) {
     if (i !== currentMoleIndex) return;
-    moleScore++;
-    document.getElementById('mole-score').textContent = moleScore;
     const cell = document.getElementById('mole-cell-' + i);
-    cell.classList.remove('active');
+    const wasTrap = cell.dataset.trap === '1';
+    cell.classList.remove('active', 'trap');
     cell.textContent = '';
+    cell.dataset.trap = '0';
     currentMoleIndex = -1;
 
-    if (moleScore > moleBest) {
-      moleBest = moleScore;
-      localStorage.setItem('moleBest', moleBest);
-      document.getElementById('mole-best').textContent = moleBest;
+    if (wasTrap) {
+      moleScore = 0;
+      document.getElementById('mole-score').textContent = moleScore;
+    } else {
+      moleScore++;
+      document.getElementById('mole-score').textContent = moleScore;
+      if (moleScore > moleBest) {
+        moleBest = moleScore;
+        localStorage.setItem('moleBest', moleBest);
+        document.getElementById('mole-best').textContent = moleBest;
+        saveMoleBestToFirebase(moleBest);
+      }
     }
     scheduleMole();
   }
@@ -794,6 +833,7 @@
     document.getElementById('tab-likes').classList.toggle('active', stat === 'likes');
     document.getElementById('tab-dislikes').classList.toggle('active', stat === 'dislikes');
     document.getElementById('tab-vus').classList.toggle('active', stat === 'vus');
+    document.getElementById('tab-moleBest').classList.toggle('active', stat === 'moleBest');
 
     const list = document.getElementById('leaderboard-list');
     list.innerHTML = '<li>Chargement...</li>';
@@ -810,7 +850,7 @@
         return;
       }
 
-      const labels = { likes: '👍', dislikes: '👎', vus: '👀' };
+      const labels = { likes: '👍', dislikes: '👎', vus: '👀', moleBest: '🎯' };
       list.innerHTML = entries.map((entry, i) => {
         const total = (entry.likes || 0) + (entry.dislikes || 0);
         return `
