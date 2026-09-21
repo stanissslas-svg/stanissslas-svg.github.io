@@ -445,6 +445,7 @@
     <div class="side-panel">
       <h3>🏃 Parcours Piégé</h3>
       <canvas id="platformer-canvas" width="204" height="260"></canvas>
+      <div class="platformer-info">🏳️ Niveau <span id="platformer-level">1</span>/<span id="platformer-total-levels">5</span></div>
       <div class="platformer-info">💀 Morts : <span id="platformer-deaths">0</span> &nbsp;|&nbsp; 🏆 Record : <span id="platformer-best">—</span></div>
       <div class="platformer-controls">← → pour bouger, ↑ pour sauter</div>
       <button class="platformer-start-btn" id="platformer-start-btn" onclick="startPlatformer()">▶ Jouer</button>
@@ -697,22 +698,66 @@
 
   // ============================================================
   // Mini-jeu "Parcours Piégé" — plateforme avec pièges cachés,
-  // indépendant des votes. Le record (moins de morts pour finir)
-  // est sauvegardé localement sur ton navigateur.
+  // indépendant des votes. Le record (moins de morts pour finir
+  // les 5 niveaux) est sauvegardé localement sur ton navigateur.
+  // Niveau 1 = aucun piège (prise en main), difficulté progressive.
   // ============================================================
-  const PF_LEVEL_DEF = [
-    { x: 0,   y: 220, w: 140, h: 20, type: 'normal' },
-    { x: 200, y: 220, w: 80,  h: 20, type: 'crumble' },
-    { x: 330, y: 220, w: 100, h: 20, type: 'normal' },
-    { x: 430, y: 180, w: 60,  h: 20, type: 'normal' },
-    { x: 500, y: 220, w: 90,  h: 20, type: 'spike' },
-    { x: 610, y: 220, w: 100, h: 20, type: 'normal' },
-    { x: 740, y: 220, w: 60,  h: 20, type: 'crumble' },
-    { x: 830, y: 220, w: 150, h: 20, type: 'normal' }
+  const PF_LEVELS = [
+    { // Niveau 1 — tutoriel, aucun piège
+      platforms: [
+        { x: 0,   y: 220, w: 150, h: 20, type: 'normal' },
+        { x: 210, y: 220, w: 150, h: 20, type: 'normal' },
+        { x: 420, y: 220, w: 180, h: 20, type: 'normal' }
+      ],
+      flagX: 520, levelWidth: 600
+    },
+    { // Niveau 2 — premier piège : sol qui s'effondre
+      platforms: [
+        { x: 0,   y: 220, w: 130, h: 20, type: 'normal' },
+        { x: 190, y: 220, w: 70,  h: 20, type: 'crumble' },
+        { x: 320, y: 220, w: 120, h: 20, type: 'normal' },
+        { x: 500, y: 220, w: 160, h: 20, type: 'normal' }
+      ],
+      flagX: 560, levelWidth: 660
+    },
+    { // Niveau 3 — deuxième piège : les pics
+      platforms: [
+        { x: 0,   y: 220, w: 130, h: 20, type: 'normal' },
+        { x: 190, y: 220, w: 100, h: 20, type: 'normal' },
+        { x: 340, y: 180, w: 70,  h: 20, type: 'normal' },
+        { x: 410, y: 180, w: 40,  h: 20, type: 'spike' },
+        { x: 465, y: 220, w: 185, h: 20, type: 'normal' }
+      ],
+      flagX: 550, levelWidth: 650
+    },
+    { // Niveau 4 — combinaison des deux pièges
+      platforms: [
+        { x: 0,   y: 220, w: 120, h: 20, type: 'normal' },
+        { x: 175, y: 220, w: 60,  h: 20, type: 'crumble' },
+        { x: 290, y: 220, w: 110, h: 20, type: 'normal' },
+        { x: 400, y: 220, w: 45,  h: 20, type: 'spike' },
+        { x: 455, y: 220, w: 100, h: 20, type: 'normal' },
+        { x: 610, y: 190, w: 70,  h: 20, type: 'crumble' },
+        { x: 730, y: 220, w: 170, h: 20, type: 'normal' }
+      ],
+      flagX: 800, levelWidth: 900
+    },
+    { // Niveau 5 — le plus corsé, enchaînement de pièges
+      platforms: [
+        { x: 0,   y: 220, w: 110, h: 20, type: 'normal' },
+        { x: 165, y: 220, w: 50,  h: 20, type: 'crumble' },
+        { x: 270, y: 220, w: 90,  h: 20, type: 'normal' },
+        { x: 360, y: 220, w: 40,  h: 20, type: 'spike' },
+        { x: 410, y: 220, w: 80,  h: 20, type: 'normal' },
+        { x: 545, y: 190, w: 50,  h: 20, type: 'crumble' },
+        { x: 645, y: 220, w: 80,  h: 20, type: 'normal' },
+        { x: 725, y: 220, w: 35,  h: 20, type: 'spike' },
+        { x: 770, y: 220, w: 180, h: 20, type: 'normal' }
+      ],
+      flagX: 870, levelWidth: 950
+    }
   ];
-  const PF_FLAG_X = 940;
   const PF_FLAG_Y = 220;
-  const PF_LEVEL_WIDTH = 1010;
   const PF_GRAVITY = 0.6;
   const PF_JUMP_FORCE = -10.5;
   const PF_MOVE_SPEED = 2.3;
@@ -729,11 +774,16 @@
   let pfBest = localStorage.getItem('platformerBest');
   let pfFlashTimer = 0;
   let pfLoopId = null;
+  let pfLevelIndex = 0;
+  let pfFlagX = 0;
+  let pfLevelWidth = 0;
+  let pfLevelUpTimer = 0;
 
   function initPlatformer() {
     pfCanvas = document.getElementById('platformer-canvas');
     pfCtx = pfCanvas.getContext('2d');
     document.getElementById('platformer-best').textContent = pfBest ? pfBest + ' morts' : '—';
+    document.getElementById('platformer-total-levels').textContent = PF_LEVELS.length;
     resetPlatformerLevel();
     drawPlatformer(); // affiche un premier cadre statique avant de jouer
 
@@ -752,15 +802,20 @@
   }
 
   function resetPlatformerLevel() {
-    pfPlatforms = PF_LEVEL_DEF.map(p => ({ ...p, broken: false, standTimer: 0 }));
+    const level = PF_LEVELS[pfLevelIndex];
+    pfPlatforms = level.platforms.map(p => ({ ...p, broken: false, standTimer: 0 }));
+    pfFlagX = level.flagX;
+    pfLevelWidth = level.levelWidth;
     pfPlayer = { x: 20, y: 150, vx: 0, vy: 0, onGround: false };
     pfWon = false;
+    document.getElementById('platformer-level').textContent = pfLevelIndex + 1;
   }
 
   function startPlatformer() {
     if (pfRunning) return;
     pfRunning = true;
     pfDeaths = 0;
+    pfLevelIndex = 0;
     document.getElementById('platformer-deaths').textContent = pfDeaths;
     document.getElementById('platformer-start-btn').style.display = 'none';
     resetPlatformerLevel();
@@ -776,6 +831,15 @@
   }
 
   function pfWin() {
+    if (pfLevelIndex < PF_LEVELS.length - 1) {
+      // Niveau suivant : on continue, la mort au compteur reste
+      pfLevelIndex++;
+      pfLevelUpTimer = 40;
+      resetPlatformerLevel();
+      return;
+    }
+
+    // Dernier niveau terminé : victoire finale
     pfWon = true;
     pfRunning = false;
     if (!pfBest || pfDeaths < parseInt(pfBest, 10)) {
@@ -784,7 +848,7 @@
       document.getElementById('platformer-best').textContent = pfBest + ' morts';
     }
     document.getElementById('platformer-start-btn').style.display = 'block';
-    document.getElementById('platformer-start-btn').textContent = '🔄 Rejouer';
+    document.getElementById('platformer-start-btn').textContent = '🔄 Recommencer';
   }
 
   function platformerLoop() {
@@ -846,11 +910,12 @@
     if (pfPlayer.y > 320) { pfRespawn(); return; }
 
     // Drapeau atteint = victoire
-    if (pfPlayer.x + PF_PLAYER_W > PF_FLAG_X && pfPlayer.y + PF_PLAYER_H > PF_FLAG_Y - 40) {
+    if (pfPlayer.x + PF_PLAYER_W > pfFlagX && pfPlayer.y + PF_PLAYER_H > PF_FLAG_Y - 40) {
       pfWin();
     }
 
     if (pfFlashTimer > 0) pfFlashTimer--;
+    if (pfLevelUpTimer > 0) pfLevelUpTimer--;
   }
 
   function pfRectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
@@ -859,7 +924,7 @@
 
   function drawPlatformer() {
     const cw = pfCanvas.width, ch = pfCanvas.height;
-    const camX = Math.max(0, Math.min(pfPlayer.x - cw / 2, PF_LEVEL_WIDTH - cw));
+    const camX = Math.max(0, Math.min(pfPlayer.x - cw / 2, pfLevelWidth - cw));
 
     // fond
     const grad = pfCtx.createLinearGradient(0, 0, 0, ch);
@@ -896,7 +961,7 @@
     });
 
     // drapeau
-    const flagX = PF_FLAG_X - camX;
+    const flagX = pfFlagX - camX;
     if (flagX > -20 && flagX < cw + 20) {
       pfCtx.fillStyle = '#facc15';
       pfCtx.fillRect(flagX, PF_FLAG_Y - 40, 3, 40);
@@ -924,17 +989,27 @@
       pfCtx.fillRect(0, 0, cw, ch);
     }
 
-    // message de victoire
+    // transition "niveau suivant"
+    if (pfLevelUpTimer > 0) {
+      pfCtx.fillStyle = `rgba(34, 211, 238, ${pfLevelUpTimer / 60})`;
+      pfCtx.fillRect(0, 0, cw, ch);
+      pfCtx.fillStyle = '#fff';
+      pfCtx.font = 'bold 14px sans-serif';
+      pfCtx.textAlign = 'center';
+      pfCtx.fillText('Niveau ' + (pfLevelIndex + 1) + ' !', cw / 2, ch / 2);
+    }
+
+    // message de victoire finale
     if (pfWon) {
       pfCtx.fillStyle = 'rgba(0,0,0,0.6)';
       pfCtx.fillRect(0, ch / 2 - 30, cw, 60);
       pfCtx.fillStyle = '#facc15';
       pfCtx.font = 'bold 16px sans-serif';
       pfCtx.textAlign = 'center';
-      pfCtx.fillText('🏆 Terminé !', cw / 2, ch / 2 - 5);
+      pfCtx.fillText('🏆 Tous terminés !', cw / 2, ch / 2 - 5);
       pfCtx.font = '12px sans-serif';
       pfCtx.fillStyle = '#fff';
-      pfCtx.fillText(pfDeaths + ' mort(s)', cw / 2, ch / 2 + 15);
+      pfCtx.fillText(pfDeaths + ' mort(s) au total', cw / 2, ch / 2 + 15);
     }
   }
 
