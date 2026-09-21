@@ -254,7 +254,7 @@
     align-items: flex-start;
     justify-content: center;
     width: 100%;
-    max-width: 940px;
+    max-width: 1000px;
   }
 
   .side-panel {
@@ -371,6 +371,33 @@
     margin-top: 6px;
   }
 
+  #platformer-canvas {
+    display: block;
+    width: 100%;
+    border-radius: 8px;
+    margin: 8px 0;
+  }
+
+  .platformer-info {
+    text-align: center;
+    font-size: 13px;
+    color: #9ca3af;
+    margin: 6px 0;
+  }
+
+  .platformer-controls {
+    text-align: center;
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 8px;
+  }
+
+  .platformer-start-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+    color: white;
+  }
+
   .side-column {
     display: flex;
     flex-direction: column;
@@ -401,17 +428,27 @@
 
 <div class="layout-wrapper">
 
-  <div class="side-panel">
-    <h3>📊 Stats globales</h3>
-    <div class="global-stat-block">
-      <div class="value">👍 <span id="global-likes">0</span></div>
-      <div class="label">J'aime au total</div>
+  <div class="side-column">
+    <div class="side-panel">
+      <h3>📊 Stats globales</h3>
+      <div class="global-stat-block">
+        <div class="value">👍 <span id="global-likes">0</span></div>
+        <div class="label">J'aime au total</div>
+      </div>
+      <div class="global-stat-block">
+        <div class="value">👎 <span id="global-dislikes">0</span></div>
+        <div class="label">J'aime pas au total</div>
+      </div>
+      <div class="global-total-line"><span id="global-total">0</span> votes en tout, tous utilisateurs confondus</div>
     </div>
-    <div class="global-stat-block">
-      <div class="value">👎 <span id="global-dislikes">0</span></div>
-      <div class="label">J'aime pas au total</div>
+
+    <div class="side-panel">
+      <h3>🏃 Parcours Piégé</h3>
+      <canvas id="platformer-canvas" width="204" height="260"></canvas>
+      <div class="platformer-info">💀 Morts : <span id="platformer-deaths">0</span> &nbsp;|&nbsp; 🏆 Record : <span id="platformer-best">—</span></div>
+      <div class="platformer-controls">← → pour bouger, ↑ pour sauter</div>
+      <button class="platformer-start-btn" id="platformer-start-btn" onclick="startPlatformer()">▶ Jouer</button>
     </div>
-    <div class="global-total-line"><span id="global-total">0</span> votes en tout, tous utilisateurs confondus</div>
   </div>
 
   <div class="card">
@@ -656,6 +693,249 @@
       document.getElementById('global-dislikes').textContent = data.dislikes || 0;
       document.getElementById('global-total').textContent = (data.likes || 0) + (data.dislikes || 0);
     });
+  }
+
+  // ============================================================
+  // Mini-jeu "Parcours Piégé" — plateforme avec pièges cachés,
+  // indépendant des votes. Le record (moins de morts pour finir)
+  // est sauvegardé localement sur ton navigateur.
+  // ============================================================
+  const PF_LEVEL_DEF = [
+    { x: 0,   y: 220, w: 140, h: 20, type: 'normal' },
+    { x: 200, y: 220, w: 80,  h: 20, type: 'crumble' },
+    { x: 330, y: 220, w: 100, h: 20, type: 'normal' },
+    { x: 430, y: 180, w: 60,  h: 20, type: 'normal' },
+    { x: 500, y: 220, w: 90,  h: 20, type: 'spike' },
+    { x: 610, y: 220, w: 100, h: 20, type: 'normal' },
+    { x: 740, y: 220, w: 60,  h: 20, type: 'crumble' },
+    { x: 830, y: 220, w: 150, h: 20, type: 'normal' }
+  ];
+  const PF_FLAG_X = 940;
+  const PF_FLAG_Y = 220;
+  const PF_LEVEL_WIDTH = 1010;
+  const PF_GRAVITY = 0.6;
+  const PF_JUMP_FORCE = -10.5;
+  const PF_MOVE_SPEED = 2.3;
+  const PF_PLAYER_W = 14;
+  const PF_PLAYER_H = 20;
+
+  let pfCanvas, pfCtx;
+  let pfPlatforms = [];
+  let pfPlayer = { x: 20, y: 150, vx: 0, vy: 0, onGround: false };
+  let pfKeys = { left: false, right: false, up: false };
+  let pfRunning = false;
+  let pfWon = false;
+  let pfDeaths = 0;
+  let pfBest = localStorage.getItem('platformerBest');
+  let pfFlashTimer = 0;
+  let pfLoopId = null;
+
+  function initPlatformer() {
+    pfCanvas = document.getElementById('platformer-canvas');
+    pfCtx = pfCanvas.getContext('2d');
+    document.getElementById('platformer-best').textContent = pfBest ? pfBest + ' morts' : '—';
+    resetPlatformerLevel();
+    drawPlatformer(); // affiche un premier cadre statique avant de jouer
+
+    document.addEventListener('keydown', e => {
+      const tag = document.activeElement.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.code === 'ArrowLeft') { pfKeys.left = true; e.preventDefault(); }
+      if (e.code === 'ArrowRight') { pfKeys.right = true; e.preventDefault(); }
+      if (e.code === 'ArrowUp' || e.code === 'Space') { pfKeys.up = true; e.preventDefault(); }
+    });
+    document.addEventListener('keyup', e => {
+      if (e.code === 'ArrowLeft') pfKeys.left = false;
+      if (e.code === 'ArrowRight') pfKeys.right = false;
+      if (e.code === 'ArrowUp' || e.code === 'Space') pfKeys.up = false;
+    });
+  }
+
+  function resetPlatformerLevel() {
+    pfPlatforms = PF_LEVEL_DEF.map(p => ({ ...p, broken: false, standTimer: 0 }));
+    pfPlayer = { x: 20, y: 150, vx: 0, vy: 0, onGround: false };
+    pfWon = false;
+  }
+
+  function startPlatformer() {
+    if (pfRunning) return;
+    pfRunning = true;
+    pfDeaths = 0;
+    document.getElementById('platformer-deaths').textContent = pfDeaths;
+    document.getElementById('platformer-start-btn').style.display = 'none';
+    resetPlatformerLevel();
+    if (pfLoopId) cancelAnimationFrame(pfLoopId);
+    pfLoopId = requestAnimationFrame(platformerLoop);
+  }
+
+  function pfRespawn() {
+    pfDeaths++;
+    document.getElementById('platformer-deaths').textContent = pfDeaths;
+    pfFlashTimer = 8;
+    resetPlatformerLevel();
+  }
+
+  function pfWin() {
+    pfWon = true;
+    pfRunning = false;
+    if (!pfBest || pfDeaths < parseInt(pfBest, 10)) {
+      pfBest = String(pfDeaths);
+      localStorage.setItem('platformerBest', pfBest);
+      document.getElementById('platformer-best').textContent = pfBest + ' morts';
+    }
+    document.getElementById('platformer-start-btn').style.display = 'block';
+    document.getElementById('platformer-start-btn').textContent = '🔄 Rejouer';
+  }
+
+  function platformerLoop() {
+    if (!pfRunning) return;
+    updatePlatformer();
+    drawPlatformer();
+    pfLoopId = requestAnimationFrame(platformerLoop);
+  }
+
+  function updatePlatformer() {
+    // Mouvement horizontal
+    if (pfKeys.left) pfPlayer.vx = -PF_MOVE_SPEED;
+    else if (pfKeys.right) pfPlayer.vx = PF_MOVE_SPEED;
+    else pfPlayer.vx = 0;
+
+    if (pfKeys.up && pfPlayer.onGround) {
+      pfPlayer.vy = PF_JUMP_FORCE;
+      pfPlayer.onGround = false;
+    }
+
+    pfPlayer.vy += PF_GRAVITY;
+
+    // Déplacement horizontal + collisions
+    pfPlayer.x += pfPlayer.vx;
+    for (const p of pfPlatforms) {
+      if (p.broken) continue;
+      if (pfRectsOverlap(pfPlayer.x, pfPlayer.y, PF_PLAYER_W, PF_PLAYER_H, p.x, p.y, p.w, p.h)) {
+        if (p.type === 'spike') { pfRespawn(); return; }
+        if (pfPlayer.vx > 0) pfPlayer.x = p.x - PF_PLAYER_W;
+        else if (pfPlayer.vx < 0) pfPlayer.x = p.x + p.w;
+      }
+    }
+
+    // Déplacement vertical + collisions
+    pfPlayer.y += pfPlayer.vy;
+    pfPlayer.onGround = false;
+    for (const p of pfPlatforms) {
+      if (p.broken) continue;
+      if (pfRectsOverlap(pfPlayer.x, pfPlayer.y, PF_PLAYER_W, PF_PLAYER_H, p.x, p.y, p.w, p.h)) {
+        if (p.type === 'spike') { pfRespawn(); return; }
+        if (pfPlayer.vy > 0) {
+          pfPlayer.y = p.y - PF_PLAYER_H;
+          pfPlayer.vy = 0;
+          pfPlayer.onGround = true;
+          if (p.type === 'crumble') {
+            p.standTimer += 16;
+            if (p.standTimer > 350) p.broken = true;
+          }
+        } else if (pfPlayer.vy < 0) {
+          pfPlayer.y = p.y + p.h;
+          pfPlayer.vy = 0;
+        }
+      }
+    }
+
+    if (pfPlayer.x < 0) pfPlayer.x = 0;
+
+    // Chute dans le vide = mort
+    if (pfPlayer.y > 320) { pfRespawn(); return; }
+
+    // Drapeau atteint = victoire
+    if (pfPlayer.x + PF_PLAYER_W > PF_FLAG_X && pfPlayer.y + PF_PLAYER_H > PF_FLAG_Y - 40) {
+      pfWin();
+    }
+
+    if (pfFlashTimer > 0) pfFlashTimer--;
+  }
+
+  function pfRectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+    return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+  }
+
+  function drawPlatformer() {
+    const cw = pfCanvas.width, ch = pfCanvas.height;
+    const camX = Math.max(0, Math.min(pfPlayer.x - cw / 2, PF_LEVEL_WIDTH - cw));
+
+    // fond
+    const grad = pfCtx.createLinearGradient(0, 0, 0, ch);
+    grad.addColorStop(0, '#1e1b4b');
+    grad.addColorStop(1, '#312e81');
+    pfCtx.fillStyle = grad;
+    pfCtx.fillRect(0, 0, cw, ch);
+
+    // plateformes
+    pfPlatforms.forEach(p => {
+      if (p.broken) return;
+      const px = p.x - camX;
+      if (px + p.w < 0 || px > cw) return;
+
+      if (p.type === 'spike') {
+        pfCtx.fillStyle = '#e11d48';
+        pfCtx.fillRect(px, p.y, p.w, p.h);
+        pfCtx.fillStyle = '#fb7185';
+        const spikeCount = Math.floor(p.w / 12);
+        for (let i = 0; i < spikeCount; i++) {
+          pfCtx.beginPath();
+          pfCtx.moveTo(px + i * 12, p.y);
+          pfCtx.lineTo(px + i * 12 + 6, p.y - 8);
+          pfCtx.lineTo(px + i * 12 + 12, p.y);
+          pfCtx.closePath();
+          pfCtx.fill();
+        }
+      } else {
+        pfCtx.fillStyle = '#475569';
+        pfCtx.fillRect(px, p.y, p.w, p.h);
+        pfCtx.fillStyle = '#64748b';
+        pfCtx.fillRect(px, p.y, p.w, 4);
+      }
+    });
+
+    // drapeau
+    const flagX = PF_FLAG_X - camX;
+    if (flagX > -20 && flagX < cw + 20) {
+      pfCtx.fillStyle = '#facc15';
+      pfCtx.fillRect(flagX, PF_FLAG_Y - 40, 3, 40);
+      pfCtx.beginPath();
+      pfCtx.moveTo(flagX + 3, PF_FLAG_Y - 40);
+      pfCtx.lineTo(flagX + 20, PF_FLAG_Y - 33);
+      pfCtx.lineTo(flagX + 3, PF_FLAG_Y - 26);
+      pfCtx.closePath();
+      pfCtx.fill();
+    }
+
+    // joueur
+    const playerX = pfPlayer.x - camX;
+    pfCtx.fillStyle = '#22d3ee';
+    pfCtx.beginPath();
+    pfCtx.roundRect(playerX, pfPlayer.y, PF_PLAYER_W, PF_PLAYER_H, 4);
+    pfCtx.fill();
+    pfCtx.fillStyle = '#0e7490';
+    pfCtx.fillRect(playerX + 3, pfPlayer.y + 5, 2, 2);
+    pfCtx.fillRect(playerX + 9, pfPlayer.y + 5, 2, 2);
+
+    // flash rouge à la mort
+    if (pfFlashTimer > 0) {
+      pfCtx.fillStyle = `rgba(225, 29, 72, ${pfFlashTimer / 20})`;
+      pfCtx.fillRect(0, 0, cw, ch);
+    }
+
+    // message de victoire
+    if (pfWon) {
+      pfCtx.fillStyle = 'rgba(0,0,0,0.6)';
+      pfCtx.fillRect(0, ch / 2 - 30, cw, 60);
+      pfCtx.fillStyle = '#facc15';
+      pfCtx.font = 'bold 16px sans-serif';
+      pfCtx.textAlign = 'center';
+      pfCtx.fillText('🏆 Terminé !', cw / 2, ch / 2 - 5);
+      pfCtx.font = '12px sans-serif';
+      pfCtx.fillStyle = '#fff';
+      pfCtx.fillText(pfDeaths + ' mort(s)', cw / 2, ch / 2 + 15);
+    }
   }
 
   // ============================================================
@@ -933,6 +1213,7 @@
   ensurePseudo();
   listenGlobalStats();
   initMoleGame();
+  initPlatformer();
   incrementStat('vus'); // compte la toute première pub affichée
   // Cooldown initial au chargement de la page (pour la toute première pub)
   startCooldown();
