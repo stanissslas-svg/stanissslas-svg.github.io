@@ -25,6 +25,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
   * {
     margin: 0;
@@ -32,10 +36,32 @@
     box-sizing: border-box;
   }
 
+  :root {
+    --bg-void: #0a0612;
+    --bg-panel: #1a1030;
+    --bg-panel-alt: #241a3d;
+    --border-main: #4a2f7a;
+    --accent-gold: #ffb703;
+    --accent-cyan: #22d3ee;
+    --accent-magenta: #ff2e88;
+    --text-primary: #f4f0ff;
+    --text-muted: #9c8fc4;
+    --shadow-hard: rgba(0,0,0,0.55);
+    --font-display: 'Silkscreen', monospace;
+    --font-body: 'Space Grotesk', sans-serif;
+  }
+
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    background: #111827;
-    color: #fff;
+    font-family: var(--font-body);
+    background-color: var(--bg-void);
+    background-image: repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,0.025) 0px,
+      rgba(255,255,255,0.025) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    color: var(--text-primary);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -45,22 +71,26 @@
   }
 
   h1 {
-    font-size: 16px;
-    font-weight: 600;
-    color: #9ca3af;
-    margin-bottom: 16px;
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--accent-gold);
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+    text-shadow: 0 0 12px rgba(255, 183, 3, 0.5), 3px 3px 0 rgba(0,0,0,0.5);
   }
 
   .card {
     width: 100%;
     max-width: 440px;
-    background: #1f2937;
-    border-radius: 16px;
+    background: var(--bg-panel);
+    border: 3px solid var(--border-main);
+    border-radius: 8px;
     padding: 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    box-shadow: 6px 6px 0 var(--shadow-hard);
   }
 
   .ad-slot {
@@ -69,8 +99,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #374151;
-    border-radius: 10px;
+    background: var(--bg-panel-alt);
+    border: 2px dashed var(--border-main);
+    border-radius: 6px;
     overflow: hidden;
   }
 
@@ -83,57 +114,62 @@
 
   button {
     flex: 1;
+    font-family: var(--font-body);
     border: none;
-    border-radius: 12px;
+    border-radius: 6px;
     padding: 14px;
     font-size: 15px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: transform 0.1s ease;
+    box-shadow: 3px 3px 0 var(--shadow-hard);
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
   }
 
   button:active {
-    transform: scale(0.95);
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 var(--shadow-hard);
   }
 
   .like {
-    background: #16a34a;
-    color: white;
+    background: var(--accent-cyan);
+    color: var(--bg-void);
   }
 
   .dislike {
-    background: #dc2626;
-    color: white;
+    background: var(--accent-magenta);
+    color: var(--bg-void);
   }
 
   button:disabled {
-    background: #4b5563;
+    background: #332850;
+    color: var(--text-muted);
     cursor: not-allowed;
-    opacity: 0.6;
+    opacity: 0.7;
+    box-shadow: none;
   }
 
   .stats {
     margin-top: 16px;
     font-size: 14px;
-    color: #9ca3af;
+    color: var(--text-muted);
   }
 
   .stats span {
     font-weight: 700;
-    color: #fff;
+    color: var(--text-primary);
   }
 
   .leaderboard-btn {
     margin-top: 16px;
-    background: #2563eb;
-    color: white;
+    background: var(--accent-gold);
+    color: var(--bg-void);
     width: 100%;
   }
 
   .overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.7);
+    background: rgba(5,2,12,0.85);
     display: none;
     align-items: center;
     justify-content: center;
@@ -146,35 +182,41 @@
   }
 
   .modal {
-    background: #1f2937;
-    border-radius: 16px;
+    background: var(--bg-panel);
+    border: 3px solid var(--border-main);
+    border-radius: 8px;
     padding: 24px;
     width: 100%;
     max-width: 420px;
     max-height: 85vh;
     overflow-y: auto;
+    box-shadow: 6px 6px 0 var(--shadow-hard);
   }
 
   .modal h2 {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--accent-cyan);
     margin-bottom: 16px;
-    font-size: 18px;
   }
 
   .modal input {
     width: 100%;
     padding: 12px;
-    border-radius: 10px;
-    border: none;
-    background: #374151;
-    color: white;
+    border-radius: 6px;
+    border: 2px solid var(--border-main);
+    background: var(--bg-panel-alt);
+    color: var(--text-primary);
+    font-family: var(--font-body);
     font-size: 15px;
     margin-bottom: 12px;
   }
 
   .modal .primary-btn {
     width: 100%;
-    background: #2563eb;
-    color: white;
+    background: var(--accent-cyan);
+    color: var(--bg-void);
   }
 
   .tabs {
@@ -188,13 +230,14 @@
     flex: 1 1 45%;
     padding: 8px;
     font-size: 12px;
-    background: #374151;
-    color: #9ca3af;
+    background: var(--bg-panel-alt);
+    color: var(--text-muted);
+    box-shadow: 2px 2px 0 var(--shadow-hard);
   }
 
   .tab-btn.active {
-    background: #2563eb;
-    color: white;
+    background: var(--accent-cyan);
+    color: var(--bg-void);
   }
 
   .leaderboard-list {
@@ -205,22 +248,24 @@
     display: flex;
     justify-content: space-between;
     padding: 10px 12px;
-    border-radius: 8px;
+    border-radius: 6px;
     margin-bottom: 6px;
-    background: #111827;
+    background: var(--bg-panel-alt);
+    border-left: 3px solid var(--accent-gold);
     font-size: 14px;
   }
 
   .leaderboard-list li .rank {
-    color: #9ca3af;
+    color: var(--text-muted);
     margin-right: 8px;
   }
 
   .close-modal {
     background: transparent;
-    color: #9ca3af;
+    color: var(--text-muted);
     width: 100%;
     margin-top: 12px;
+    box-shadow: none;
   }
 
   .player-bar {
@@ -233,18 +278,18 @@
   }
 
   .player-bar .streak {
-    color: #fb923c;
+    color: var(--accent-magenta);
     font-weight: 700;
   }
 
   .player-bar .badge {
-    color: #facc15;
+    color: var(--accent-gold);
     font-weight: 700;
   }
 
   .badge-tag {
     font-size: 12px;
-    color: #facc15;
+    color: var(--accent-gold);
     margin-left: 6px;
   }
 
@@ -260,17 +305,21 @@
   .side-panel {
     width: 240px;
     flex-shrink: 0;
-    background: #1f2937;
-    border-radius: 16px;
+    background: var(--bg-panel);
+    border: 3px solid var(--border-main);
+    border-radius: 8px;
     padding: 18px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    box-shadow: 6px 6px 0 var(--shadow-hard);
   }
 
   .side-panel h3 {
-    font-size: 14px;
-    color: #9ca3af;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--accent-cyan);
     text-align: center;
     margin-bottom: 12px;
+    letter-spacing: 0.5px;
   }
 
   .creature-emoji {
@@ -288,20 +337,21 @@
   .creature-points {
     text-align: center;
     font-size: 13px;
-    color: #9ca3af;
+    color: var(--text-muted);
     margin: 8px 0;
   }
 
   .progress-track {
-    background: #374151;
-    border-radius: 8px;
+    background: var(--bg-panel-alt);
+    border: 1px solid var(--border-main);
+    border-radius: 6px;
     height: 10px;
     overflow: hidden;
     margin-bottom: 8px;
   }
 
   .progress-fill {
-    background: #facc15;
+    background: var(--accent-gold);
     height: 100%;
     width: 0%;
     transition: width 0.3s ease;
@@ -310,7 +360,7 @@
   .creature-next {
     text-align: center;
     font-size: 12px;
-    color: #9ca3af;
+    color: var(--text-muted);
   }
 
   .global-stat-block {
@@ -319,56 +369,61 @@
   }
 
   .global-stat-block .value {
-    font-size: 26px;
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--text-primary);
   }
 
   .global-stat-block .label {
     font-size: 12px;
-    color: #9ca3af;
+    color: var(--text-muted);
   }
 
   .global-total-line {
     text-align: center;
     font-size: 13px;
-    color: #9ca3af;
+    color: var(--text-muted);
     margin-top: 8px;
     padding-top: 12px;
-    border-top: 1px solid #374151;
+    border-top: 1px solid var(--border-main);
   }
 
   #snake-canvas {
     display: block;
     width: 100%;
-    border-radius: 8px;
+    border-radius: 6px;
+    border: 2px solid var(--border-main);
     margin: 8px 0;
   }
 
   #platformer-canvas {
     display: block;
     width: 100%;
-    border-radius: 8px;
+    border-radius: 6px;
+    border: 2px solid var(--border-main);
     margin: 8px 0;
   }
 
   .platformer-info {
     text-align: center;
     font-size: 13px;
-    color: #9ca3af;
+    color: var(--text-muted);
     margin: 6px 0;
   }
 
   .platformer-controls {
     text-align: center;
     font-size: 11px;
-    color: #6b7280;
+    color: var(--text-muted);
+    opacity: 0.8;
     margin-bottom: 8px;
   }
 
   .platformer-start-btn {
     flex: 1;
-    background: linear-gradient(135deg, #06b6d4, #8b5cf6);
-    color: white;
+    background: var(--accent-gold);
+    color: var(--bg-void);
   }
 
   .platformer-btn-row {
@@ -378,10 +433,12 @@
 
   .fullscreen-btn {
     flex-shrink: 0;
-    background: #374151;
-    color: #d1d5db;
+    background: var(--bg-panel-alt);
+    color: var(--text-muted);
+    border: 1px solid var(--border-main);
     padding: 10px 12px;
     font-size: 13px;
+    box-shadow: none;
   }
 
   .side-panel:fullscreen,
@@ -390,21 +447,22 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: #0f172a;
+    background: var(--bg-void);
     width: 100vw;
     height: 100vh;
     border-radius: 0;
+    border: none;
   }
 
   .side-panel:fullscreen #platformer-canvas,
   .side-panel:-webkit-full-screen #platformer-canvas {
     image-rendering: pixelated;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    box-shadow: 6px 6px 0 var(--shadow-hard);
   }
 
   .side-panel:fullscreen h3,
   .side-panel:-webkit-full-screen h3 {
-    font-size: 22px;
+    font-size: 20px;
     margin-bottom: 20px;
   }
 
