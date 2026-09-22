@@ -532,7 +532,8 @@
       <div class="platformer-controls">← → pour bouger, ↑ pour sauter</div>
       <div class="platformer-btn-row">
         <button class="platformer-start-btn" id="platformer-start-btn" onclick="startPlatformer()">▶ Jouer</button>
-        <button class="fullscreen-btn" onclick="togglePlatformerFullscreen()">⛶ Plein écran</button>
+        <button class="fullscreen-btn" onclick="togglePlatformerFullscreen()" title="Plein écran">⛶</button>
+        <button class="fullscreen-btn" onclick="resetPlatformerGame()" title="Réinitialiser ce jeu">↻</button>
       </div>
     </div>
   </div>
@@ -593,7 +594,10 @@
       <canvas id="snake-canvas" width="204" height="204"></canvas>
       <div class="platformer-info">Score : <span id="snake-score">0</span> &nbsp;|&nbsp; Record : <span id="snake-best">0</span></div>
       <div class="platformer-controls">← ↑ → ↓ pour diriger le serpent</div>
-      <button class="platformer-start-btn" id="snake-start-btn" onclick="startSnake()">▶ Jouer</button>
+      <div class="platformer-btn-row">
+        <button class="platformer-start-btn" id="snake-start-btn" onclick="startSnake()">▶ Jouer</button>
+        <button class="fullscreen-btn" onclick="resetSnakeGame()" title="Réinitialiser ce jeu">↻</button>
+      </div>
     </div>
   </div>
 
@@ -1037,6 +1041,25 @@
     pfLoopId = requestAnimationFrame(platformerLoop);
   }
 
+  // Stoppe et remet le jeu à zéro, même s'il était resté "bloqué"
+  // en arrière-plan après être passé sur un autre mini-jeu.
+  function resetPlatformerGame() {
+    if (pfLoopId) cancelAnimationFrame(pfLoopId);
+    pfRunning = false;
+    pfWon = false;
+    pfKeys = { left: false, right: false, up: false };
+    pfLevelIndex = 0;
+    pfDeaths = 0;
+    pfFlashTimer = 0;
+    pfLevelUpTimer = 0;
+    document.getElementById('platformer-deaths').textContent = pfDeaths;
+    resetPlatformerLevel();
+    drawPlatformer();
+    const btn = document.getElementById('platformer-start-btn');
+    btn.style.display = 'block';
+    btn.textContent = '▶ Jouer';
+  }
+
   function pfRespawn() {
     pfDeaths++;
     document.getElementById('platformer-deaths').textContent = pfDeaths;
@@ -1296,6 +1319,19 @@
     resetSnake();
     if (snakeInterval) clearInterval(snakeInterval);
     snakeInterval = setInterval(snakeTick, SNAKE_TICK_MS);
+  }
+
+  // Stoppe et remet le jeu à zéro, même s'il était resté "bloqué"
+  // en arrière-plan après être passé sur un autre mini-jeu.
+  function resetSnakeGame() {
+    if (snakeInterval) clearInterval(snakeInterval);
+    snakeRunning = false;
+    snakeGameOver = false;
+    resetSnake();
+    drawSnake();
+    const btn = document.getElementById('snake-start-btn');
+    btn.style.display = 'block';
+    btn.textContent = '▶ Jouer';
   }
 
   function saveSnakeBestToFirebase(best) {
